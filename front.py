@@ -87,6 +87,10 @@ class Application(tk.Frame):
 
         self.clear = tk.Button(self, text='Clear', command=self.cleardrawings)
         self.clear.pack(side='top')
+
+
+
+
 '''
 root = tk.Tk()
 app = Application(master=root)
