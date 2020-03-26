@@ -3,15 +3,16 @@ from PIL import Image, ImageTk
 import numpy as np
 
 class Application(tk.Frame):
-    def __init__(self, master=None, w=600, h=600):
+    def __init__(self, input_image, processor, master=None, w=600, h=600):
         super().__init__(master=master, width=w, height=h)
         self.width = w
         self.height = h
+        self.image_path = input_image
         self.master = master
         self.pack()
         self.points_recorded = []
-        self.hist = np.zeros(shape=(2, 3, 256), dtype=np.uint32)
         self.inputmode = {'obj': 1, 'color': 'blue'}
+        self.processor = processor
         self.create_widgets()
 
     def mousepos(self, event):
@@ -22,10 +23,7 @@ class Application(tk.Frame):
         self.points_recorded += [event.x, event.y]
 
         r, g, b = self.pil_image.convert('RGB').getpixel((event.x, event.y))
-        #print(f'I see pixel at ({event.x}, {event.y}) with RGB ({r}, {g}, {b})')
-        self.hist[self.inputmode['obj'], 0, r] += 1
-        self.hist[self.inputmode['obj'], 1, g] += 1
-        self.hist[self.inputmode['obj'], 2, b] += 1
+        self.processor.update_data(self.inputmode['obj'], event.x, event.y, r, g, b)
 
         if len(self.points_recorded) > 4:
             self.points_recorded = self.points_recorded[2:]
@@ -40,6 +38,7 @@ class Application(tk.Frame):
     def cleardrawings(self):
         self.canvas.delete('all')
         self.canvas.create_image(0, 0, image = self.render, anchor=tk.NW)
+        self.processor.clearhist()
 
     def load_image(self, image_path):
         self.pil_image = Image.open(image_path).resize((self.width, self.height))
@@ -60,7 +59,7 @@ class Application(tk.Frame):
     def create_widgets(self):
         f = tk.Frame(self)
         f.pack(side='left')
-        self.load_image('geo_dataset/Cpy-Sh33.jpg')
+        self.load_image(self.image_path)
         self.label = tk.Label(f, image=self.render)
         #self.label.image = self.render
         self.label.pack(side='left')
@@ -87,6 +86,9 @@ class Application(tk.Frame):
 
         self.clear = tk.Button(self, text='Clear', command=self.cleardrawings)
         self.clear.pack(side='top')
+
+        self.process_button = tk.Button(self, text='Segment', command=self.processor)
+        self.process_button.pack(side='top')
 
 
 
