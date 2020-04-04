@@ -20,10 +20,15 @@ class Application(tk.Frame):
             self.clearpoints(event)
             return
 
-        self.points_recorded += [event.x, event.y]
+        l = self.hbar.get()[0]
+        u = self.vbar.get()[0]
+        
+        x = int(np.around(event.x + l*self.pil_image.size[0]))
+        y = int(np.around(event.y + u*self.pil_image.size[1]))
+        self.points_recorded += [x, y]
 
-        r, g, b = self.pil_image.convert('RGB').getpixel((event.x, event.y))
-        self.processor.update_data(self.inputmode['obj'], event.x, event.y, r, g, b)
+        r, g, b = self.pil_image.convert('RGB').getpixel((x, y))
+        self.processor.update_data(self.inputmode['obj'], x, y, r, g, b)
 
         if len(self.points_recorded) > 4:
             self.points_recorded = self.points_recorded[2:]
@@ -40,8 +45,11 @@ class Application(tk.Frame):
         self.canvas.create_image(0, 0, image = self.render, anchor=tk.NW)
         self.processor.clearhist()
 
-    def load_image(self, image_path):
-        self.pil_image = Image.open(image_path).resize((self.width, self.height))
+    def load_image(self, image_path, resize=True):
+        if resize:
+            self.pil_image = Image.open(image_path).resize((self.width, self.height))
+        else:
+            self.pil_image = Image.open(image_path)
         self.render = ImageTk.PhotoImage(self.pil_image)
 
     def switch(self):
@@ -56,27 +64,46 @@ class Application(tk.Frame):
             self.switch['text'] = 'Background'
             self.switch['fg'] = 'red'
 
+    def segment(self):
+        self.processor()
+        pil_image = Image.open(self.processor.output_image).resize((self.width, self.height))
+        rendered = ImageTk.PhotoImage(pil_image)
+        self.label.configure(image=rendered)
+        self.label.image=rendered
+            
     def create_widgets(self):
+        '''
+        Result frame initialization with resize
+        '''
         f = tk.Frame(self)
         f.pack(side='left')
-        self.load_image(self.image_path)
-        self.label = tk.Label(f, image=self.render)
-        #self.label.image = self.render
+        pil_image = Image.open(self.image_path).resize((self.width, self.height))
+        render = ImageTk.PhotoImage(pil_image)
+        self.label = tk.Label(f, image=render)
+        self.label.image=render
         self.label.pack(side='left')
 
+        '''
+        Canvas initialization
+        '''
+        self.load_image(self.image_path, resize=False)
         uf = tk.Frame(self)
         uf.pack(side='right')
-        self.canvas = tk.Canvas(uf, width=self.width, height=self.height)
+        self.canvas = tk.Canvas(uf, width=self.width, height=self.height, scrollregion=(0, 0, self.pil_image.size[0], self.pil_image.size[1]))
+        self.hbar = tk.Scrollbar(uf, orient=tk.HORIZONTAL)
+        self.hbar.pack(side=tk.BOTTOM, fill=tk.X)
+        self.hbar.config(command=self.canvas.xview)
+        self.vbar = tk.Scrollbar(uf, orient=tk.VERTICAL)
+        self.vbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.vbar.config(command=self.canvas.yview)
         self.canvas.create_image(0, 0, image=self.render, anchor=tk.NW)
         self.canvas.bind('<B1-Motion>', self.mousepos)
         self.canvas.bind('<ButtonRelease-1>', self.clearpoints)
-        self.canvas.pack(expand=tk.YES, fill=tk.BOTH)
-       
+        self.canvas.config(xscrollcommand=self.hbar.set, yscrollcommand=self.vbar.set)
+        self.canvas.pack(side=tk.LEFT, expand=tk.YES, fill=tk.BOTH)   
+    
         '''
-        self.hi_there = tk.Button(self)
-        self.hi_there['text'] = 'Hello World!\nClick me'
-        self.hi_there['command'] = self.say_hi
-        self.hi_there.pack(side = 'bottom')
+        Button initialization
         '''
         self.switch = tk.Button(self, text='Object', fg='blue', command=self.switch)
         self.switch.pack(side='top')
@@ -87,14 +114,5 @@ class Application(tk.Frame):
         self.clear = tk.Button(self, text='Clear', command=self.cleardrawings)
         self.clear.pack(side='top')
 
-        self.process_button = tk.Button(self, text='Segment', command=self.processor)
+        self.process_button = tk.Button(self, text='Segment', command=self.segment)
         self.process_button.pack(side='top')
-
-
-
-
-'''
-root = tk.Tk()
-app = Application(master=root)
-app.mainloop()
-'''

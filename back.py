@@ -17,8 +17,11 @@ class Cutter():
     pixel_list[1] - locations of object pixels
     '''
 
-    def __init__(self, input_image, output_image, scale_shape = (600, 600), mode='simple'):
-        self.image = np.array(resize(skimage.img_as_float(imread(input_image, as_gray=True)), scale_shape))
+    def __init__(self, input_image, output_image, scale_shape = None, mode='simple'):
+        if not scale_shape is None:
+            self.image = np.array(resize(skimage.img_as_float(imread(input_image, as_gray=True)), scale_shape))
+        else:
+            self.image = np.array(skimage.img_as_float(imread(input_image, as_gray=True)))
         self.output_image = output_image
         self.hist = np.zeros((2, 3, 256), dtype=np.uint32)
         self.D = np.max(self.image) - np.min(self.image)
@@ -74,8 +77,6 @@ class Cutter():
                 if i < h - 1:
                     weight = self.w((i, j), (i + 1, j))
                     g.add_edge(nodeids[i, j], nodeids[i + 1, j], weight, weight)
-                    #if weight < 1.:
-                        #print(f'{weight} at ({i}, {j})')
 
                 if j < w - 1:
                     weight = self.w((i, j), (i, j + 1))
@@ -88,17 +89,9 @@ class Cutter():
                 else:
                     g.add_tedge(nodeids[i, j], self.term_simple((i, j)), self.term_simple((i, j), s=False))
 
-        '''
-        for line, column in self.pixel_list[1]: # assigning object pixels
-            g.add_tedge(nodeids[line, column], h*(w-1) + w*(h-1), 0)
-
-        for line, column in self.pixel_list[0]: # assigning background pixels
-            g.add_tedge(nodeids[line, column], 0, h*(w-1) + w*(h-1))
-        '''
-
         print('Graph constructed. Starting maxflow calculation....')
         flow = g.maxflow()
-        print('Maxflow calculated. Performing segmentation....')
+        print('Maxflow calculated. Performing segmentation...')
 
         mask = np.zeros(self.image.shape, dtype=np.float32)
         boolarray = g.get_grid_segments(nodeids)
