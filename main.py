@@ -15,7 +15,7 @@ if __name__ == '__main__':
         sys.exit(0)
 
     shape = (800, 800)
-    cutter = Cutter(sys.argv[1], sys.argv[2])
+    cutter = Cutter(sys.argv[1], sys.argv[2], as_gray=False)
 
     root = tk.Tk()
     app = Application(master=root, input_image = sys.argv[1], processor = cutter, w=shape[0], h=shape[1])

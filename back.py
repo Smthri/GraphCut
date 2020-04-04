@@ -17,11 +17,11 @@ class Cutter():
     pixel_list[1] - locations of object pixels
     '''
 
-    def __init__(self, input_image, output_image, scale_shape = None, mode='simple'):
+    def __init__(self, input_image, output_image, scale_shape=None, as_gray=True, mode='simple'):
         if not scale_shape is None:
-            self.image = np.array(resize(skimage.img_as_float(imread(input_image, as_gray=True)), scale_shape))
+            self.image = np.array(resize(skimage.img_as_float(imread(input_image, as_gray=as_gray)), scale_shape))
         else:
-            self.image = np.array(skimage.img_as_float(imread(input_image, as_gray=True)))
+            self.image = np.array(skimage.img_as_float(imread(input_image, as_gray=as_gray)))
         self.output_image = output_image
         self.hist = np.zeros((2, 3, 256), dtype=np.uint32)
         self.D = np.max(self.image) - np.min(self.image)
@@ -29,6 +29,7 @@ class Cutter():
         self.pixel_list = [set(), set()]
 
         self.w = self.simple
+        self.tw = self.term_simple
 
 
     def update_data(self, obj, x, y, r, g, b):
@@ -42,12 +43,12 @@ class Cutter():
         Calculates weight between pixels p and q.
         p, q - tuple(line, column) - coordinates of pixels
         '''
-        return self.D - np.abs(image[p] - image[q])
+        return self.D - np.max(np.abs(image[p] - image[q]))
 
     def term_simple(self, p, image, s=True):
         if not s:
-            return self.M - np.abs(self.B - image[p])
-        return self.M - np.abs(self.O - image[p])
+            return self.M - np.max(np.abs(self.B - image[p]))
+        return self.M - np.max(np.abs(self.O - image[p]))
 
     def clearhist(self):
         self.hist *= 0
@@ -74,7 +75,7 @@ class Cutter():
         self.D = self.M - np.min(image)
 
         g = GraphFloat()
-        nodeids = g.add_grid_nodes(image.shape)
+        nodeids = g.add_grid_nodes((h, w))
         print('Constructing graph....')
         
         for i in tqdm(range(h)):
@@ -89,11 +90,11 @@ class Cutter():
                     g.add_edge(nodeids[i, j], nodeids[i, j + 1], weight, weight)
 
                 if (i, j) in self.pixel_list[1]:
-                    g.add_tedge(nodeids[i, j], h*(w-1) + w*(h-1), 0)
+                    g.add_tedge(nodeids[i, j], float('inf'), 0)
                 elif (i, j) in self.pixel_list[0]:
-                    g.add_tedge(nodeids[i, j], 0, h*(w-1) + w*(h-1))
+                    g.add_tedge(nodeids[i, j], 0, float('inf'))
                 else:
-                    g.add_tedge(nodeids[i, j], self.term_simple((i, j), image), self.term_simple((i, j), image, s=False))
+                    g.add_tedge(nodeids[i, j], self.tw((i, j), image), self.tw((i, j), image, s=False))
 
         print('Graph constructed. Starting maxflow calculation....')
         flow = g.maxflow()
