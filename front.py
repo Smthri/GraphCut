@@ -28,7 +28,7 @@ class Application(tk.Frame):
         self.points_recorded += [x, y]
 
         r, g, b = self.pil_image.convert('RGB').getpixel((x, y))
-        self.processor.update_data(self.inputmode['obj'], x, y, r, g, b)
+        self.processor.update_data(self.inputmode['obj'], event.x, event.y, r, g, b)
 
         if len(self.points_recorded) > 4:
             self.points_recorded = self.points_recorded[2:]
@@ -65,7 +65,11 @@ class Application(tk.Frame):
             self.switch['fg'] = 'red'
 
     def segment(self):
-        self.processor()
+        x = int(np.around(self.hbar.get()[0] * self.pil_image.size[0]))
+        y = int(np.around(self.vbar.get()[0] * self.pil_image.size[1]))
+        
+        self.processor((x, y, self.width, self.height))
+        
         pil_image = Image.open(self.processor.output_image).resize((self.width, self.height))
         rendered = ImageTk.PhotoImage(pil_image)
         self.label.configure(image=rendered)
