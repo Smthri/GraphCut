@@ -1,4 +1,5 @@
 import tkinter as tk
+import tkinter.ttk as ttk
 from PIL import Image, ImageTk
 import numpy as np
 
@@ -13,6 +14,7 @@ class Application(tk.Frame):
         self.points_recorded = []
         self.inputmode = {'obj': 1, 'color': 'blue'}
         self.processor = processor
+        self.mode = 'simple'
         self.create_widgets()
 
     def mousepos(self, event):
@@ -64,11 +66,19 @@ class Application(tk.Frame):
             self.switch['text'] = 'Background'
             self.switch['fg'] = 'red'
 
+    def change_mode(self):
+        if self.modebutton['text'] == 'Simple':
+            self.modebutton['text'] = 'Expon'
+            self.mode='probabilistic'
+        else:
+            self.modebutton['text'] = 'Simple'
+            self.mode='simple'
+            
     def segment(self):
         x = int(np.around(self.hbar.get()[0] * self.pil_image.size[0]))
         y = int(np.around(self.vbar.get()[0] * self.pil_image.size[1]))
         
-        self.processor((x, y, self.width, self.height))
+        self.processor((x, y, self.width, self.height), self.mode, (self.progressbar, self))
         
         pil_image = Image.open(self.processor.output_image).resize((self.width, self.height))
         rendered = ImageTk.PhotoImage(pil_image)
@@ -117,6 +127,15 @@ class Application(tk.Frame):
 
         self.clear = tk.Button(self, text='Clear', command=self.cleardrawings)
         self.clear.pack(side='top')
+        
+        self.modebutton = tk.Button(self, text='Simple', command=self.change_mode)
+        self.modebutton.pack(side='top')
 
         self.process_button = tk.Button(self, text='Segment', command=self.segment)
         self.process_button.pack(side='top')
+        
+        '''
+        Progressbar initialization
+        '''
+        self.progressbar = ttk.Progressbar(self, orient=tk.HORIZONTAL, length=100, mode='determinate')
+        self.progressbar.pack(side='top')
