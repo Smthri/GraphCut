@@ -34,12 +34,15 @@ class Cutter():
         self.pixel_list = [set(), set()]
         self.mask = np.zeros(self.image.shape[:2], dtype=np.uint8)
 
+    # Update processor data
     def update_data(self, obj, x, y, r, g, b):
         self.pixel_list[obj].add((y, x)) #TODO: check pixel coordinates
         self.hist[obj, 0, r] += 1
         self.hist[obj, 1, g] += 1
         self.hist[obj, 2, b] += 1
 
+        
+    # List of segmentation functions
     def simple(self, p, q, image):
         '''
         Calculates weight between pixels p and q.
@@ -53,7 +56,7 @@ class Cutter():
         return self.M - np.max(np.abs(self.O - image[p]))
 
     def probabilistic(self, p, q, image):
-        sigma = .5
+        sigma = 1.
         return math.exp(-(np.max(np.abs(image[p] - image[q])))**2 / (2*sigma**2))
                 
     def term_probabilistic(self, p, image, s=True):
@@ -70,11 +73,15 @@ class Cutter():
             return float('inf')
         return max(-math.log(pr), 0.)
     
+    
+    # Clear processor data
     def clearhist(self):
         self.hist *= 0
         self.pixel_list[0].clear()
         self.pixel_list[1].clear()
 
+        
+    # Perform segmentation
     def __call__(self, bbox, mode='simple', progress=None):
 
         '''
@@ -85,28 +92,28 @@ class Cutter():
         progress - tuple(ttk.Progressbar, root) - views to send progress information to
         '''
 
+        # Check if we have necessary inputs
         if np.max(self.hist[0]) == 0 or np.max(self.hist[1]) == 0:
             print('No data offered, quitting.')
             return
         
-        if mode == 'simple':
-            self.w = self.simple
-            self.tw = self.term_simple
-        elif mode == 'probabilistic':
-            self.w = self.probabilistic
-            self.tw = self.term_probabilistic
-        
         x, y, w, h = bbox
         image = self.image[y:y+h, x:x+w]
         
-        for d in [0, 1, 2]:
-            self.hist[1, d] /= np.sum(self.hist[1, d])
-            self.hist[0, d] /= np.sum(self.hist[0, d])
-        
-        self.O = np.mean([image[i, j] for i, j in self.pixel_list[1]])
-        self.B = np.mean([image[i, j] for i, j in self.pixel_list[0]])
-        #self.M = np.max(image)
-        #self.D = self.M - np.min(image)
+        # For passed mode set functions and data
+        if mode == 'simple':
+            self.w = self.simple
+            self.tw = self.term_simple
+            
+            self.O = np.mean([image[i, j] for i, j in self.pixel_list[1]])
+            self.B = np.mean([image[i, j] for i, j in self.pixel_list[0]])
+        elif mode == 'probabilistic':
+            self.w = self.probabilistic
+            self.tw = self.term_probabilistic
+            
+            for d in [0, 1, 2]:
+                self.hist[1, d] /= np.sum(self.hist[1, d])
+                self.hist[0, d] /= np.sum(self.hist[0, d])
 
         g = GraphFloat()
         nodeids = g.add_grid_nodes((h, w))
@@ -139,11 +146,12 @@ class Cutter():
         flow = g.maxflow()
         print('Maxflow calculated. Performing segmentation...')
 
-        mask = np.zeros((h, w), dtype=np.uint8)
+        mask = np.zeros((h, w), dtype=np.uint8) + 255
         boolarray = g.get_grid_segments(nodeids)
-        mask[boolarray] = 255
+        mask[boolarray] = 0
+        
         print('Mask constructed.')
-        self.mask[y:y+h, x:x+w] = 255-mask
-        imsave(self.output_image, 255-mask) # maxflow returns 1 if pixel is a background pixel
+        self.mask[y:y+h, x:x+w] = mask
+        imsave(self.output_image, mask) # maxflow returns 1 if pixel is a background pixel
         print('Done.')
 

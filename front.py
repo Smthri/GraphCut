@@ -4,10 +4,13 @@ from PIL import Image, ImageTk
 import numpy as np
 
 class Application(tk.Frame):
-    def __init__(self, input_image, processor, master=None, w=600, h=600):
-        super().__init__(master=master, width=w, height=h)
-        self.width = w
-        self.height = h
+    def __init__(self, input_image, processor, master=None):
+        self.load_image(input_image, resize=False)
+        w, h = self.pil_image.size[:2]
+        super(Application, self).__init__(master=master, width=w, height=h)
+        
+        self.width = min(800, w)
+        self.height = min(800, h)
         self.image_path = input_image
         self.master = master
         self.pack()
@@ -17,6 +20,8 @@ class Application(tk.Frame):
         self.mode = 'simple'
         self.create_widgets()
 
+        
+    # Update processor data and draw lines
     def mousepos(self, event):
         if event.x < 0 or event.x >= self.width or event.y < 0 or event.y >= self.height:
             self.clearpoints(event)
@@ -39,14 +44,20 @@ class Application(tk.Frame):
 
         self.canvas.create_line(self.points_recorded, fill=self.inputmode['color'])
 
+        
+    # Clear recorded points from buffer
     def clearpoints(self, event):
         self.points_recorded = []
 
+        
+    # Clear processor data and scribbles
     def cleardrawings(self):
         self.canvas.delete('all')
         self.canvas.create_image(0, 0, image = self.render, anchor=tk.NW)
         self.processor.clearhist()
 
+        
+    # Load image data
     def load_image(self, image_path, resize=True):
         if resize:
             self.pil_image = Image.open(image_path).resize((self.width, self.height))
@@ -54,6 +65,8 @@ class Application(tk.Frame):
             self.pil_image = Image.open(image_path)
         self.render = ImageTk.PhotoImage(self.pil_image)
 
+        
+    # Switch between object and background selection
     def switch(self):
         self.inputmode['obj'] = 1 - self.inputmode['obj']
 
@@ -66,6 +79,8 @@ class Application(tk.Frame):
             self.switch['text'] = 'Background'
             self.switch['fg'] = 'red'
 
+            
+    # Switch chosen segmentation options
     def change_mode(self):
         if self.modebutton['text'] == 'Simple':
             self.modebutton['text'] = 'Expon'
@@ -74,6 +89,8 @@ class Application(tk.Frame):
             self.modebutton['text'] = 'Simple'
             self.mode='simple'
             
+            
+    # Perform segmentation and ouput result
     def segment(self):
         x = int(np.around(self.hbar.get()[0] * self.pil_image.size[0]))
         y = int(np.around(self.vbar.get()[0] * self.pil_image.size[1]))
@@ -84,7 +101,9 @@ class Application(tk.Frame):
         rendered = ImageTk.PhotoImage(pil_image)
         self.label.configure(image=rendered)
         self.label.image=rendered
+           
             
+    # Set up the layout
     def create_widgets(self):
         '''
         Result frame initialization with resize
@@ -100,7 +119,6 @@ class Application(tk.Frame):
         '''
         Canvas initialization
         '''
-        self.load_image(self.image_path, resize=False)
         uf = tk.Frame(self)
         uf.pack(side='right')
         self.canvas = tk.Canvas(uf, width=self.width, height=self.height, scrollregion=(0, 0, self.pil_image.size[0], self.pil_image.size[1]))
