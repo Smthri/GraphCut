@@ -82,7 +82,7 @@ class Cutter():
 
         
     # Perform segmentation
-    def __call__(self, bbox, mode='simple', progress=None):
+    def __call__(self, bbox, classnum=255, mode='simple', progress=None):
 
         '''
         Method where the maxflow is computed and the image is segmented.
@@ -146,12 +146,12 @@ class Cutter():
         flow = g.maxflow()
         print('Maxflow calculated. Performing segmentation...')
 
-        mask = np.zeros((h, w), dtype=np.uint8) + 255
+        mask = np.full((h, w), classnum, dtype=np.uint8)
         boolarray = g.get_grid_segments(nodeids)
         mask[boolarray] = 0
         
         print('Mask constructed.')
-        self.mask[y:y+h, x:x+w] = mask
-        imsave(self.output_image, mask) # maxflow returns 1 if pixel is a background pixel
+        self.mask[y:y+h, x:x+w] = np.clip(self.mask[y:y+h, x:x+w] + mask, 0, 255)
+        imsave(self.output_image, self.mask[y:y+h, x:x+w]) # maxflow returns 1 if pixel is a background pixel
         print('Done.')
 

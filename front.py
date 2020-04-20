@@ -4,7 +4,7 @@ from PIL import Image, ImageTk
 import numpy as np
 
 class Application(tk.Frame):
-    def __init__(self, input_image, processor, master=None):
+    def __init__(self, input_image, processor, num_classes, master=None):
         self.load_image(input_image, resize=False)
         w, h = self.pil_image.size[:2]
         super(Application, self).__init__(master=master, width=w, height=h)
@@ -18,6 +18,8 @@ class Application(tk.Frame):
         self.inputmode = {'obj': 1, 'color': 'blue'}
         self.processor = processor
         self.mode = 'simple'
+        self.selected_class=0
+        self.num_classes=num_classes
         self.create_widgets()
 
         
@@ -90,12 +92,27 @@ class Application(tk.Frame):
             self.mode='simple'
             
             
-    # Perform segmentation and ouput result
+    def switch_right(self):
+        if self.selected_class + 1 >= self.num_classes:
+            return
+        
+        self.selected_class += 1
+        self.class_text['text'] = str(self.selected_class)
+        
+    def switch_left(self):
+        if self.selected_class <= 0:
+            return
+        
+        self.selected_class -= 1
+        self.class_text['text'] = str(self.selected_class)
+            
+    # Perform segmentation and output result
     def segment(self):
         x = int(np.around(self.hbar.get()[0] * self.pil_image.size[0]))
         y = int(np.around(self.vbar.get()[0] * self.pil_image.size[1]))
         
-        self.processor((x, y, self.width, self.height), self.mode, (self.progressbar, self))
+        classval = int((self.selected_class + 1)/self.num_classes * 255)
+        self.processor((x, y, self.width, self.height), classval, self.mode, (self.progressbar, self))
         
         pil_image = Image.open(self.processor.output_image).resize((self.width, self.height))
         rendered = ImageTk.PhotoImage(pil_image)
@@ -151,6 +168,18 @@ class Application(tk.Frame):
 
         self.process_button = tk.Button(self, text='Segment', command=self.segment)
         self.process_button.pack(side='top')
+        
+        '''
+        Class widget
+        '''
+        wf = tk.Frame(self)
+        wf.pack(side='top')
+        self.class_text = tk.Button(wf, text='0')
+        self.class_text.pack(side='top')
+        self.left_class_button = tk.Button(wf, text='<', command=self.switch_left)
+        self.left_class_button.pack(side='left')
+        self.right_class_button = tk.Button(wf, text='>', command=self.switch_right)
+        self.right_class_button.pack(side='right')
         
         '''
         Progressbar initialization

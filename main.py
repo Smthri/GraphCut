@@ -10,11 +10,11 @@ def process_func():
     pass
 
 if __name__ == '__main__':
-    if (len(sys.argv) < 3):
-        print('Usage: python main.py <input_image> <output_image>')
+    if (len(sys.argv) < 4):
+        print('Usage: python main.py <input_image> <output_image> <num_classes>')
         sys.exit(0)
 
     cutter = Cutter(sys.argv[1], sys.argv[2], as_gray=False)
     root = tk.Tk()
-    app = Application(master=root, input_image = sys.argv[1], processor = cutter)
+    app = Application(master=root, input_image = sys.argv[1], processor = cutter, num_classes=int(sys.argv[3]))
     app.mainloop()
