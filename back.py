@@ -1,10 +1,14 @@
 import numpy as np
+from numpy.linalg import norm
 from skimage.io import imread, imsave
 from skimage.transform import resize
+from skimage.color import rgb2gray
 import skimage
 from maxflow import *
 from tqdm import tqdm
 import math
+from skimage.feature.texture import *
+from scipy.signal import convolve2d as cnv
 
 
 class Cutter():
@@ -33,7 +37,13 @@ class Cutter():
         self.M = np.max(self.image)
         self.pixel_list = [set(), set()]
         self.mask = np.zeros(self.image.shape[:2], dtype=np.uint8)
+        self.last_bbox = None
 
+    def clear_mask(self):
+        if self.last_bbox:
+            x, y, w, h = self.last_bbox
+            self.mask[y:y+h, x:x+w] = 0
+        
     # Update processor data
     def update_data(self, obj, x, y, r, g, b):
         self.pixel_list[obj].add((y, x)) #TODO: check pixel coordinates
@@ -79,10 +89,29 @@ class Cutter():
         self.hist *= 0
         self.pixel_list[0].clear()
         self.pixel_list[1].clear()
-
         
+    def texture(self, image):
+        kernel = np.full((3, 3), 1/9)
+        asmn = np.stack([cnv(image[:,:,i]**2, kernel, mode='same', boundary='symm') for i in range(3)], axis=2)
+        mean = np.stack([cnv(image[:,:,i], kernel, mode='same', boundary='symm') for i in range(3)], axis=2)
+        sd = np.stack([np.sqrt(cnv((image[:,:,i]-mean[:,:,i])**2, kernel**2, mode='same', boundary='symm')) for i in range(3)], axis=2)
+        var = sd/(mean+0.001)
+        skew = np.stack([cnv((image[:,:,i]-mean[:,:,i])**3, kernel, mode='same', boundary='symm') for i in range(3)], axis=2) / (sd+0.001)**3
+        kurt = np.stack([cnv((image[:,:,i]-mean[:,:,i])**4, kernel, mode='same', boundary='symm') for i in range(3)], axis=2) / (sd+0.001)**4
+        #ent = -np.stack([cnv(image[:,:,i]*np.log2(image[:,:,i]), kernel*9, mode='same', boundary='symm') for i in range(3)], axis=2)
+        
+        texture_vector = np.stack((asmn, mean, sd, var, skew, kurt), axis=2)
+        """texture_vector -= np.min(texture_vector)
+        m = np.max(texture_vector)
+        print(m)
+        if m > 0:
+            texture_vector /= m"""
+            
+        return texture_vector
+    
+    
     # Perform segmentation
-    def __call__(self, bbox, classnum=255, mode='simple', progress=None):
+    def __call__(self, bbox, classnum=255, mode='simple', progress=None, use_textures=True):
 
         '''
         Method where the maxflow is computed and the image is segmented.
@@ -97,8 +126,14 @@ class Cutter():
             print('No data offered, quitting.')
             return
         
+        self.last_bbox = bbox
         x, y, w, h = bbox
         image = self.image[y:y+h, x:x+w]
+        
+        if use_textures:
+            texture_vector = self.texture(image)
+        else:
+            texture_vector = np.zeros((h, w))
         
         # For passed mode set functions and data
         if mode == 'simple':
@@ -126,13 +161,15 @@ class Cutter():
                 progress[1].update_idletasks()
                 
             for j in range(w):
-
+                
                 if i < h - 1:
-                    weight = self.w((i, j), (i + 1, j), image)
+                    weight = self.w((i, j), (i + 1, j), image) - np.clip(norm(texture_vector[i, j] - texture_vector[i+1, j]), 0, 1)
+                    #print(weight)
                     g.add_edge(nodeids[i, j], nodeids[i + 1, j], weight, weight)
 
                 if j < w - 1:
-                    weight = self.w((i, j), (i, j + 1), image)
+                    weight = self.w((i, j), (i, j + 1), image) - np.clip(norm(texture_vector[i, j] - texture_vector[i, j+1]), 0, 1)
+                    #print(weight)
                     g.add_edge(nodeids[i, j], nodeids[i, j + 1], weight, weight)
 
                 if (i, j) in self.pixel_list[1]:

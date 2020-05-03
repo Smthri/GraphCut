@@ -18,6 +18,7 @@ class Application(tk.Frame):
         self.inputmode = {'obj': 1, 'color': 'blue'}
         self.processor = processor
         self.mode = 'simple'
+        self.use_textures=True
         self.selected_class=0
         self.num_classes=num_classes
         self.create_widgets()
@@ -112,14 +113,29 @@ class Application(tk.Frame):
         y = int(np.around(self.vbar.get()[0] * self.pil_image.size[1]))
         
         classval = int((self.selected_class + 1)/self.num_classes * 255)
-        self.processor((x, y, self.width, self.height), classval, self.mode, (self.progressbar, self))
+        self.processor((x, y, self.width, self.height), classval, self.mode, (self.progressbar, self), self.use_textures)
         
         pil_image = Image.open(self.processor.output_image).resize((self.width, self.height))
         rendered = ImageTk.PhotoImage(pil_image)
         self.label.configure(image=rendered)
         self.label.image=rendered
            
+    
+    def texture_mode(self):
+        if self.use_textures:
+            self.texture_button['text'] = 'Textures: OFF'
+            self.use_textures=False
+        else:
+            self.texture_button['text'] = 'Textures: ON'
+            self.use_textures=True
             
+    def clearmap(self):
+        self.processor.clear_mask()
+        pil_image = Image.fromarray(np.zeros((self.height, self.width), dtype=np.uint8))
+        rendered = ImageTk.PhotoImage(pil_image)
+        self.label.configure(image=rendered)
+        self.label.image=rendered
+    
     # Set up the layout
     def create_widgets(self):
         '''
@@ -160,14 +176,20 @@ class Application(tk.Frame):
         self.quit = tk.Button(self, text='QUIT', fg='red', command=self.master.destroy)
         self.quit.pack(side='top')
 
-        self.clear = tk.Button(self, text='Clear', command=self.cleardrawings)
+        self.clear = tk.Button(self, text='Clear Scribbles', command=self.cleardrawings)
         self.clear.pack(side='top')
+        
+        self.clear_map = tk.Button(self, text='Clear Map', command=self.clearmap)
+        self.clear_map.pack(side='top')
         
         self.modebutton = tk.Button(self, text='Simple', command=self.change_mode)
         self.modebutton.pack(side='top')
 
         self.process_button = tk.Button(self, text='Segment', command=self.segment)
         self.process_button.pack(side='top')
+        
+        self.texture_button = tk.Button(self, text='Textures: ON', command=self.texture_mode)
+        self.texture_button.pack(side='top')
         
         '''
         Class widget
